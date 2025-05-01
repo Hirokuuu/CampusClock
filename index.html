@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Time Tracking System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .location-error {
+            border-left: 4px solid #ef4444;
+        }
+        .location-success {
+            border-left: 4px solid #10b981;
+        }
+        .tab-active {
+            border-bottom: 2px solid #4f46e5;
+            color: #4f46e5;
+        }
+        .tab-inactive {
+            border-bottom: 2px solid transparent;
+            color: #6b7280;
+        }
+        .edit-time-input {
+            width: 120px;
+            padding: 2px 4px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-bold text-indigo-700 mb-2">Student Time Tracker</h1>
+            <p class="text-gray-600">Track your attendance with ease</p>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl transition-all duration-300">
+            <!-- Login Section -->
+            <div id="loginSection" class="p-8 fade-in">
+                <div class="flex justify-center mb-6">
+                    <div class="bg-indigo-100 p-4 rounded-full">
+                        <i class="fas fa-user-clock text-indigo-600 text-3xl"></i>
+                    </div>
+                </div>
+                
+                <div class="flex mb-6">
+                    <button id="studentLoginTab" class="flex-1 py-2 px-4 font-medium text-center border-b-2 border-indigo-500 text-indigo-600">Student</button>
+                    <button id="adminLoginTab" class="flex-1 py-2 px-4 font-medium text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700">Admin</button>
+                </div>
+                
+                <!-- Student Login Form -->
+                <div id="studentLoginForm" class="space-y-4">
+                    <div>
+                        <label for="studentId" class="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
+                        <input type="text" id="studentId" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter your student ID">
+                    </div>
+                    
+                    <div id="locationStatus" class="p-3 rounded bg-gray-50 hidden">
+                        <div class="flex items-center">
+                            <i id="locationIcon" class="fas fa-map-marker-alt mr-2"></i>
+                            <span id="locationText">Checking location...</span>
+                        </div>
+                    </div>
+                    
+                    <button id="studentLoginBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">
+                        Sign In
+                    </button>
+                </div>
+                
+                <!-- Admin Login Form (Hidden by default) -->
+                <div id="adminLoginForm" class="space-y-4 hidden">
+                    <div>
+                        <label for="adminUsername" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input type="text" id="adminUsername" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter admin username">
+                    </div>
+                    <div>
+                        <label for="adminPassword" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="adminPassword" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter admin password">
+                    </div>
+                    <button id="adminLoginBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">
+                        Admin Login
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Student Dashboard (Hidden by default) -->
+            <div id="studentDashboard" class="p-8 hidden fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800">Welcome, <span id="studentName">Student</span></h2>
+                    <button id="logoutBtn" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-gray-600">Current Status:</span>
+                        <span id="currentStatus" class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-800">Not clocked in</span>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        <div id="lastActionTime">Last action: Never</div>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <button id="clockInBtn" class="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors flex items-center justify-center pulse">
+                        <i class="fas fa-sign-in-alt mr-2"></i> Clock In
+                    </button>
+                    <button id="clockOutBtn" class="w-full bg-red-600 text-white py-3 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors flex items-center justify-center hidden">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Clock Out
+                    </button>
+                </div>
+                
+                <div id="locationStatusDashboard" class="mt-6 p-3 rounded bg-gray-50">
+                    <div class="flex items-center">
+                        <i id="locationIconDashboard" class="fas fa-map-marker-alt mr-2"></i>
+                        <span id="locationTextDashboard">Location status</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Admin Dashboard (Hidden by default) -->
+            <div id="adminDashboard" class="p-8 hidden fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800">Admin Dashboard</h2>
+                    <button id="adminLogoutBtn" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+                
+                <div class="flex space-x-2 mb-6">
+                    <button id="manageStudentsTab" class="tab-active px-4 py-2 font-medium">Manage Students</button>
+                    <button id="timeLogsTab" class="tab-inactive px-4 py-2 font-medium">Time Logs</button>
+                </div>
+                
+                <!-- Manage Students Section -->
+                <div id="manageStudentsSection">
+                    <div class="mb-6">
+                        <h3 class="text-lg font-medium text-gray-700 mb-3">Manage Student IDs</h3>
+                        <div class="flex space-x-2 mb-3">
+                            <input type="text" id="newStudentId" class="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter new student ID">
+                            <button id="addStudentBtn" class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors">
+                                Add
+                            </button>
+                        </div>
+                        
+                        <div class="border rounded-lg overflow-hidden">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentList" class="bg-white divide-y divide-gray-200">
+                                    <!-- Student IDs will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-700 mb-3">Export Data</h3>
+                        <button id="exportDataBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors flex items-center justify-center">
+                            <i class="fas fa-file-export mr-2"></i> Export to Excel
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Time Logs Section (Hidden by default) -->
+                <div id="timeLogsSection" class="hidden">
+                    <div class="mb-4">
+                        <label for="logDate" class="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
+                        <input type="date" id="logDate" class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="studentFilter" class="block text-sm font-medium text-gray-700 mb-1">Filter by Student</label>
+                        <select id="studentFilter" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">All Students</option>
+                            <!-- Student options will be populated here -->
+                        </select>
+                    </div>
+                    
+                    <div class="border rounded-lg overflow-hidden">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock In</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock Out</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="timeLogsList" class="bg-white divide-y divide-gray-200">
+                                <!-- Time logs will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Toast Notification -->
+        <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg transform translate-y-10 opacity-0 transition-all duration-300 hidden">
+            <div class="flex items-center">
+                <i id="toastIcon" class="fas fa-info-circle mr-2"></i>
+                <span id="toastMessage">Notification message</span>
+            </div>
+        </div>
+        
+        <!-- Edit Time Modal -->
+        <div id="editTimeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Edit Time Record</h3>
+                    <button id="closeEditModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
+                        <div id="editStudentId" class="px-3 py-2 bg-gray-100 rounded"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Clock In</label>
+                        <input type="datetime-local" id="editClockIn" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Clock Out</label>
+                        <input type="datetime-local" id="editClockOut" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button id="saveEditBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+                            Save Changes
+                        </button>
+                        <button id="cancelEditBtn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock database
+        const mockDatabase = {
+            // Admin credentials
+            admin: {
+                username: 'admin',
+                password: 'pass'
+            },
+            
+            // Student IDs (initially empty, can be added through admin panel)
+            students: [],
+            
+            // Time records
+            timeRecords: []
+        };
+
+        // Check if there's any saved data in localStorage
+        if (localStorage.getItem('timeTrackerData')) {
+            const savedData = JSON.parse(localStorage.getItem('timeTrackerData'));
+            mockDatabase.students = savedData.students || [];
+            mockDatabase.timeRecords = savedData.timeRecords || [];
+        }
+
+        // DOM Elements
+        const studentLoginTab = document.getElementById('studentLoginTab');
+        const adminLoginTab = document.getElementById('adminLoginTab');
+        const studentLoginForm = document.getElementById('studentLoginForm');
+        const adminLoginForm = document.getElementById('adminLoginForm');
+        const studentLoginBtn = document.getElementById('studentLoginBtn');
+        const adminLoginBtn = document.getElementById('adminLoginBtn');
+        const studentDashboard = document.getElementById('studentDashboard');
+        const adminDashboard = document.getElementById('adminDashboard');
+        const loginSection = document.getElementById('loginSection');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const adminLogoutBtn = document.getElementById('adminLogoutBtn');
+        const clockInBtn = document.getElementById('clockInBtn');
+        const clockOutBtn = document.getElementById('clockOutBtn');
+        const currentStatus = document.getElementById('currentStatus');
+        const lastActionTime = document.getElementById('lastActionTime');
+        const studentName = document.getElementById('studentName');
+        const studentIdInput = document.getElementById('studentId');
+        const adminUsername = document.getElementById('adminUsername');
+        const adminPassword = document.getElementById('adminPassword');
+        const newStudentId = document.getElementById('newStudentId');
+        const addStudentBtn = document.getElementById('addStudentBtn');
+        const studentList = document.getElementById('studentList');
+        const exportDataBtn = document.getElementById('exportDataBtn');
+        const locationStatus = document.getElementById('locationStatus');
+        const locationIcon = document.getElementById('locationIcon');
+        const locationText = document.getElementById('locationText');
+        const locationStatusDashboard = document.getElementById('locationStatusDashboard');
+        const locationIconDashboard = document.getElementById('locationIconDashboard');
+        const locationTextDashboard = document.getElementById('locationTextDashboard');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+        const manageStudentsTab = document.getElementById('manageStudentsTab');
+        const timeLogsTab = document.getElementById('timeLogsTab');
+        const manageStudentsSection = document.getElementById('manageStudentsSection');
+        const timeLogsSection = document.getElementById('timeLogsSection');
+        const logDate = document.getElementById('logDate');
+        const studentFilter = document.getElementById('studentFilter');
+        const timeLogsList = document.getElementById('timeLogsList');
+        const editTimeModal = document.getElementById('editTimeModal');
+        const closeEditModal = document.getElementById('closeEditModal');
+        const editStudentId = document.getElementById('editStudentId');
+        const editClockIn = document.getElementById('editClockIn');
+        const editClockOut = document.getElementById('editClockOut');
+        const saveEditBtn = document.getElementById('saveEditBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+
+        // App State
+        let currentStudent = null;
+        let isAdmin = false;
+        let isClockedIn = false;
+        let lastActionTimestamp = null;
+        let isAtSchool = false;
+        let currentlyEditingRecord = null;
+
+        // School location settings (mock values)
+        const schoolLocation = {
+            latitude: 40.7128,  // Example: New York coordinates
+            longitude: -74.0060,
+            radius: 100, // meters
+            wifiSSID: 'School_WiFi' // Mock WiFi name
+        };
+
+        // Initialize the app
+        function init() {
+            // Set up event listeners
+            studentLoginTab.addEventListener('click', () => switchLoginTab('student'));
+            adminLoginTab.addEventListener('click', () => switchLoginTab('admin'));
+            studentLoginBtn.addEventListener('click', handleStudentLogin);
+            adminLoginBtn.addEventListener('click', handleAdminLogin);
+            logoutBtn.addEventListener('click', handleLogout);
+            adminLogoutBtn.addEventListener('click', handleLogout);
+            clockInBtn.addEventListener('click', handleClockIn);
+            clockOutBtn.addEventListener('click', handleClockOut);
+            addStudentBtn.addEventListener('click', addStudentId);
+            exportDataBtn.addEventListener('click', exportData);
+            manageStudentsTab.addEventListener('click', () => switchAdminTab('manage'));
+            timeLogsTab.addEventListener('click', () => switchAdminTab('logs'));
+            logDate.addEventListener('change', renderTimeLogs);
+            studentFilter.addEventListener('change', renderTimeLogs);
+            closeEditModal.addEventListener('click', () => editTimeModal.classList.add('hidden'));
+            cancelEditBtn.addEventListener('click', () => editTimeModal.classList.add('hidden'));
+            saveEditBtn.addEventListener('click', saveEditedTime);
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            logDate.value = today;
+            
+            // Check if user is already logged in (for demo purposes, in real app this would check session)
+            checkLocation();
+            
+            // Render student list if there are any
+            if (mockDatabase.students.length > 0) {
+                renderStudentList();
+                populateStudentFilter();
+            }
+        }
+
+        // Switch between student and admin login tabs
+        function switchLoginTab(tab) {
+            if (tab === 'student') {
+                studentLoginTab.classList.add('border-indigo-500', 'text-indigo-600');
+                studentLoginTab.classList.remove('border-transparent', 'text-gray-500');
+                adminLoginTab.classList.add('border-transparent', 'text-gray-500');
+                adminLoginTab.classList.remove('border-indigo-500', 'text-indigo-600');
+                studentLoginForm.classList.remove('hidden');
+                adminLoginForm.classList.add('hidden');
+            } else {
+                adminLoginTab.classList.add('border-indigo-500', 'text-indigo-600');
+                adminLoginTab.classList.remove('border-transparent', 'text-gray-500');
+                studentLoginTab.classList.add('border-transparent', 'text-gray-500');
+                studentLoginTab.classList.remove('border-indigo-500', 'text-indigo-600');
+                adminLoginForm.classList.remove('hidden');
+                studentLoginForm.classList.add('hidden');
+            }
+        }
+
+        // Switch between admin tabs
+        function switchAdminTab(tab) {
+            if (tab === 'manage') {
+                manageStudentsTab.classList.add('tab-active');
+                manageStudentsTab.classList.remove('tab-inactive');
+                timeLogsTab.classList.add('tab-inactive');
+                timeLogsTab.classList.remove('tab-active');
+                manageStudentsSection.classList.remove('hidden');
+                timeLogsSection.classList.add('hidden');
+            } else {
+                timeLogsTab.classList.add('tab-active');
+                timeLogsTab.classList.remove('tab-inactive');
+                manageStudentsTab.classList.add('tab-inactive');
+                manageStudentsTab.classList.remove('tab-active');
+                timeLogsSection.classList.remove('hidden');
+                manageStudentsSection.classList.add('hidden');
+                renderTimeLogs();
+            }
+        }
+
+        // Handle student login
+        function handleStudentLogin() {
+            const studentId = studentIdInput.value.trim();
+            
+            if (!studentId) {
+                showToast('Please enter your student ID', 'error');
+                return;
+            }
+            
+            // Check if student ID exists
+            if (!mockDatabase.students.includes(studentId)) {
+                showToast('Student ID not found', 'error');
+                return;
+            }
+            
+            // Verify location before allowing login
+            if (!isAtSchool) {
+                showToast('You must be at school to log in', 'error');
+                return;
+            }
+            
+            currentStudent = studentId;
+            isAdmin = false;
+            
+            // Check if student has any existing records
+            const studentRecords = mockDatabase.timeRecords.filter(record => record.studentId === studentId);
+            
+            if (studentRecords.length > 0) {
+                const lastRecord = studentRecords[studentRecords.length - 1];
+                isClockedIn = lastRecord.type === 'clock-in' && !lastRecord.clockOutTime;
+                
+                if (isClockedIn) {
+                    lastActionTimestamp = lastRecord.timestamp;
+                    
+                    // Check if student has been clocked in for more than 8 hours (auto clock out)
+                    const clockInTime = new Date(lastRecord.timestamp);
+                    const now = new Date();
+                    const hoursDiff = (now - clockInTime) / (1000 * 60 * 60);
+                    
+                    if (hoursDiff >= 8) {
+                        // Auto clock out
+                        const timestamp = new Date().toISOString();
+                        lastRecord.clockOutTime = timestamp;
+                        isClockedIn = false;
+                        saveData();
+                        showToast('Automatically clocked out after 8 hours', 'info');
+                    }
+                } else if (studentRecords.length >= 2) {
+                    lastActionTimestamp = studentRecords[studentRecords.length - 2].timestamp;
+                }
+            }
+            
+            // Update UI
+            studentName.textContent = `Student ${studentId}`;
+            updateStatusDisplay();
+            
+            // Show dashboard
+            loginSection.classList.add('hidden');
+            studentDashboard.classList.remove('hidden');
+            
+            showToast(`Welcome, Student ${studentId}`, 'success');
+        }
+
+        // Handle admin login
+        function handleAdminLogin() {
+            const username = adminUsername.value.trim();
+            const password = adminPassword.value.trim();
+            
+            if (!username || !password) {
+                showToast('Please enter both username and password', 'error');
+                return;
+            }
+            
+            if (username !== mockDatabase.admin.username || password !== mockDatabase.admin.password) {
+                showToast('Invalid admin credentials', 'error');
+                return;
+            }
+            
+            isAdmin = true;
+            
+            // Update UI
+            loginSection.classList.add('hidden');
+            adminDashboard.classList.remove('hidden');
+            
+            // Render student list and time logs
+            renderStudentList();
+            populateStudentFilter();
+            
+            showToast('Admin login successful', 'success');
+        }
+
+        // Handle logout
+        function handleLogout() {
+            currentStudent = null;
+            isAdmin = false;
+            isClockedIn = false;
+            lastActionTimestamp = null;
+            
+            // Reset forms
+            studentIdInput.value = '';
+            adminUsername.value = '';
+            adminPassword.value = '';
+            
+            // Update UI
+            studentDashboard.classList.add('hidden');
+            adminDashboard.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+            
+            // Switch back to student login tab
+            switchLoginTab('student');
+            
+            showToast('Logged out successfully', 'success');
+        }
+
+        // Handle clock in
+        function handleClockIn() {
+            if (!isAtSchool) {
+                showToast('You must be at school to clock in', 'error');
+                return;
+            }
+            
+            const timestamp = new Date().toISOString();
+            
+            // Create new clock-in record
+            mockDatabase.timeRecords.push({
+                studentId: currentStudent,
+                type: 'clock-in',
+                timestamp: timestamp,
+                clockOutTime: null,
+                location: 'School'
+            });
+            
+            isClockedIn = true;
+            lastActionTimestamp = timestamp;
+            
+            // Save to localStorage (in a real app, this would be a server call)
+            saveData();
+            
+            // Update UI
+            updateStatusDisplay();
+            showToast('Clocked in successfully', 'success');
+        }
+
+        // Handle clock out
+        function handleClockOut() {
+            const timestamp = new Date().toISOString();
+            
+            // Find the last clock-in record without a clock-out
+            const lastClockIn = mockDatabase.timeRecords
+                .filter(record => record.studentId === currentStudent && record.type === 'clock-in')
+                .reverse()
+                .find(record => !record.clockOutTime);
+            
+            if (lastClockIn) {
+                lastClockIn.clockOutTime = timestamp;
+            }
+            
+            isClockedIn = false;
+            
+            // Save to localStorage (in a real app, this would be a server call)
+            saveData();
+            
+            // Update UI
+            updateStatusDisplay();
+            showToast('Clocked out successfully', 'success');
+        }
+
+        // Update the status display
+        function updateStatusDisplay() {
+            if (isClockedIn) {
+                currentStatus.textContent = 'Clocked In';
+                currentStatus.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800';
+                clockInBtn.classList.add('hidden');
+                clockOutBtn.classList.remove('hidden');
+            } else {
+                currentStatus.textContent = 'Clocked Out';
+                currentStatus.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800';
+                clockInBtn.classList.remove('hidden');
+                clockOutBtn.classList.add('hidden');
+            }
+            
+            if (lastActionTimestamp) {
+                const actionDate = new Date(lastActionTimestamp);
+                lastActionTime.textContent = `Last action: ${actionDate.toLocaleString()}`;
+            } else {
+                lastActionTime.textContent = 'Last action: Never';
+            }
+        }
+
+        // Add a new student ID
+        function addStudentId() {
+            const id = newStudentId.value.trim();
+            
+            if (!id) {
+                showToast('Please enter a student ID', 'error');
+                return;
+            }
+            
+            if (mockDatabase.students.includes(id)) {
+                showToast('Student ID already exists', 'error');
+                return;
+            }
+            
+            mockDatabase.students.push(id);
+            newStudentId.value = '';
+            
+            // Save to localStorage (in a real app, this would be a server call)
+            saveData();
+            
+            // Update UI
+            renderStudentList();
+            populateStudentFilter();
+            showToast('Student ID added successfully', 'success');
+        }
+
+        // Remove a student ID
+        function removeStudentId(id) {
+            mockDatabase.students = mockDatabase.students.filter(student => student !== id);
+            
+            // Also remove any time records for this student
+            mockDatabase.timeRecords = mockDatabase.timeRecords.filter(record => record.studentId !== id);
+            
+            // Save to localStorage (in a real app, this would be a server call)
+            saveData();
+            
+            // Update UI
+            renderStudentList();
+            populateStudentFilter();
+            showToast('Student ID removed successfully', 'success');
+        }
+
+        // Render the student list
+        function renderStudentList() {
+            studentList.innerHTML = '';
+            
+            if (mockDatabase.students.length === 0) {
+                const row = document.createElement('tr');
+                row.className = 'text-center';
+                row.innerHTML = `
+                    <td colspan="2" class="px-4 py-4 text-sm text-gray-500">No student IDs added yet</td>
+                `;
+                studentList.appendChild(row);
+                return;
+            }
+            
+            mockDatabase.students.forEach(id => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-4 py-4 text-sm text-gray-900">${id}</td>
+                    <td class="px-4 py-4 text-sm text-gray-500">
+                        <button class="text-red-600 hover:text-red-900 remove-btn" data-id="${id}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                `;
+                studentList.appendChild(row);
+            });
+            
+            // Add event listeners to remove buttons
+            document.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.getAttribute('data-id');
+                    removeStudentId(id);
+                });
+            });
+        }
+
+        // Populate student filter dropdown
+        function populateStudentFilter() {
+            studentFilter.innerHTML = '<option value="">All Students</option>';
+            
+            mockDatabase.students.forEach(id => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = id;
+                studentFilter.appendChild(option);
+            });
+        }
+
+        // Render time logs for the selected date
+        function renderTimeLogs() {
+            const selectedDate = logDate.value;
+            const selectedStudent = studentFilter.value;
+            
+            if (!selectedDate) return;
+            
+            // Filter records for the selected date
+            let records = mockDatabase.timeRecords.filter(record => {
+                const recordDate = record.timestamp.split('T')[0];
+                return recordDate === selectedDate;
+            });
+            
+            // Filter by student if selected
+            if (selectedStudent) {
+                records = records.filter(record => record.studentId === selectedStudent);
+            }
+            
+            // Group clock-in and clock-out records
+            const groupedRecords = [];
+            const clockInRecords = records.filter(r => r.type === 'clock-in');
+            
+            clockInRecords.forEach(clockIn => {
+                const clockOut = records.find(r => 
+                    r.type === 'clock-out' && 
+                    r.studentId === clockIn.studentId && 
+                    r.timestamp > clockIn.timestamp &&
+                    (!clockIn.clockOutTime || r.timestamp === clockIn.clockOutTime)
+                );
+                
+                groupedRecords.push({
+                    studentId: clockIn.studentId,
+                    clockIn: clockIn.timestamp,
+                    clockOut: clockOut ? clockOut.timestamp : clockIn.clockOutTime,
+                    recordId: clockIn.timestamp // Using clock-in timestamp as unique ID
+                });
+            });
+            
+            // Clear existing logs
+            timeLogsList.innerHTML = '';
+            
+            if (groupedRecords.length === 0) {
+                const row = document.createElement('tr');
+                row.className = 'text-center';
+                row.innerHTML = `
+                    <td colspan="5" class="px-4 py-4 text-sm text-gray-500">No time records found for this date</td>
+                `;
+                timeLogsList.appendChild(row);
+                return;
+            }
+            
+            // Add logs to the table
+            groupedRecords.forEach(record => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                // Calculate duration
+                let duration = 'N/A';
+                if (record.clockOut) {
+                    const clockInTime = new Date(record.clockIn);
+                    const clockOutTime = new Date(record.clockOut);
+                    const diffMs = clockOutTime - clockInTime;
+                    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                    duration = `${diffHrs}h ${diffMins}m`;
+                }
+                
+                row.innerHTML = `
+                    <td class="px-4 py-4 text-sm text-gray-900">${record.studentId}</td>
+                    <td class="px-4 py-4 text-sm text-gray-500">${formatDateTime(record.clockIn)}</td>
+                    <td class="px-4 py-4 text-sm text-gray-500">${record.clockOut ? formatDateTime(record.clockOut) : 'Not clocked out'}</td>
+                    <td class="px-4 py-4 text-sm text-gray-500">${duration}</td>
+                    <td class="px-4 py-4 text-sm text-gray-500">
+                        <button class="text-indigo-600 hover:text-indigo-900 edit-btn mr-2" data-id="${record.recordId}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                `;
+                timeLogsList.appendChild(row);
+            });
+            
+            // Add event listeners to edit buttons
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const recordId = btn.getAttribute('data-id');
+                    openEditModal(recordId);
+                });
+            });
+        }
+
+        // Format date and time for display
+        function formatDateTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+
+        // Open edit modal for a time record
+        function openEditModal(recordId) {
+            // Find the clock-in record
+            const clockInRecord = mockDatabase.timeRecords.find(r => r.timestamp === recordId);
+            
+            if (!clockInRecord) return;
+            
+            // Find the corresponding clock-out record
+            const clockOutRecord = mockDatabase.timeRecords.find(r => 
+                r.type === 'clock-out' && 
+                r.studentId === clockInRecord.studentId && 
+                r.timestamp > clockInRecord.timestamp &&
+                (!clockInRecord.clockOutTime || r.timestamp === clockInRecord.clockOutTime)
+            );
+            
+            currentlyEditingRecord = {
+                clockInRecord,
+                clockOutRecord
+            };
+            
+            // Populate modal fields
+            editStudentId.textContent = clockInRecord.studentId;
+            
+            // Convert ISO string to format compatible with datetime-local input
+            const clockInDate = new Date(clockInRecord.timestamp);
+            const clockInLocal = new Date(clockInDate.getTime() - (clockInDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            editClockIn.value = clockInLocal;
+            
+            if (clockOutRecord) {
+                const clockOutDate = new Date(clockOutRecord.timestamp);
+                const clockOutLocal = new Date(clockOutDate.getTime() - (clockOutDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                editClockOut.value = clockOutLocal;
+            } else if (clockInRecord.clockOutTime) {
+                const clockOutDate = new Date(clockInRecord.clockOutTime);
+                const clockOutLocal = new Date(clockOutDate.getTime() - (clockOutDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                editClockOut.value = clockOutLocal;
+            } else {
+                editClockOut.value = '';
+            }
+            
+            // Show modal
+            editTimeModal.classList.remove('hidden');
+        }
+
+        // Save edited time record
+        function saveEditedTime() {
+            if (!currentlyEditingRecord) return;
+            
+            const { clockInRecord, clockOutRecord } = currentlyEditingRecord;
+            
+            // Get edited values
+            const newClockIn = new Date(editClockIn.value);
+            const newClockOut = editClockOut.value ? new Date(editClockOut.value) : null;
+            
+            // Validate
+            if (newClockOut && newClockOut <= newClockIn) {
+                showToast('Clock out time must be after clock in time', 'error');
+                return;
+            }
+            
+            // Update records
+            clockInRecord.timestamp = newClockIn.toISOString();
+            
+            if (clockOutRecord) {
+                if (newClockOut) {
+                    clockOutRecord.timestamp = newClockOut.toISOString();
+                } else {
+                    // Remove clock-out record if user cleared the field
+                    mockDatabase.timeRecords = mockDatabase.timeRecords.filter(r => r !== clockOutRecord);
+                }
+            } else if (newClockOut) {
+                // Create new clock-out record if needed
+                mockDatabase.timeRecords.push({
+                    studentId: clockInRecord.studentId,
+                    type: 'clock-out',
+                    timestamp: newClockOut.toISOString(),
+                    clockOutTime: null,
+                    location: 'School'
+                });
+            }
+            
+            // Update clockOutTime in clock-in record
+            clockInRecord.clockOutTime = newClockOut ? newClockOut.toISOString() : null;
+            
+            // Save changes
+            saveData();
+            
+            // Close modal and refresh view
+            editTimeModal.classList.add('hidden');
+            renderTimeLogs();
+            showToast('Time record updated successfully', 'success');
+        }
+
+        // Export data to Excel
+        function exportData() {
+            try {
+                // Prepare data
+                const data = [];
+                
+                // Group clock-in and clock-out records
+                const clockInRecords = mockDatabase.timeRecords.filter(r => r.type === 'clock-in');
+                
+                clockInRecords.forEach(clockIn => {
+                    const clockOut = mockDatabase.timeRecords.find(r => 
+                        r.type === 'clock-out' && 
+                        r.studentId === clockIn.studentId && 
+                        r.timestamp > clockIn.timestamp &&
+                        (!clockIn.clockOutTime || r.timestamp === clockIn.clockOutTime)
+                    );
+                    
+                    data.push({
+                        'Student ID': clockIn.studentId,
+                        'Clock In': new Date(clockIn.timestamp).toLocaleString(),
+                        'Clock Out': clockOut ? new Date(clockOut.timestamp).toLocaleString() : (clockIn.clockOutTime ? new Date(clockIn.clockOutTime).toLocaleString() : 'N/A'),
+                        'Location': clockIn.location || 'Unknown'
+                    });
+                });
+                
+                // Sort by clock-in time
+                data.sort((a, b) => new Date(a['Clock In']) - new Date(b['Clock In']));
+                
+                // Create worksheet
+                const ws = XLSX.utils.json_to_sheet(data);
+                
+                // Create workbook
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Time Records");
+                
+                // Generate file and trigger download
+                XLSX.writeFile(wb, "student_time_records.xlsx");
+                
+                showToast('Data exported successfully', 'success');
+            } catch (error) {
+                console.error('Export error:', error);
+                showToast('Error exporting data', 'error');
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('timeTrackerData', JSON.stringify({
+                students: mockDatabase.students,
+                timeRecords: mockDatabase.timeRecords
+            }));
+        }
+
+        // Check user's location
+        function checkLocation() {
+            // This is a mock implementation
+            // In a real app, you would use the Geolocation API and possibly the Network Information API
+            
+            // For this demo, we'll simulate location checking with a timeout
+            locationStatus.classList.remove('hidden');
+            locationStatusDashboard.classList.remove('hidden');
+            
+            // Mock checking location (simulate delay)
+            setTimeout(() => {
+                // Randomly determine if user is at school (for demo purposes)
+                // In a real app, you would compare actual coordinates with school coordinates
+                const isAtSchool = Math.random() > 0.3; // 70% chance of being at school for demo
+                
+                updateLocationStatus(isAtSchool);
+                
+                // Continue checking location periodically
+                setInterval(() => {
+                    updateLocationStatus(Math.random() > 0.3);
+                }, 30000); // Check every 30 seconds
+            }, 2000);
+        }
+
+        // Update location status display
+        function updateLocationStatus(atSchool) {
+            isAtSchool = atSchool;
+            
+            if (atSchool) {
+                locationStatus.className = 'p-3 rounded bg-gray-50 location-success';
+                locationStatusDashboard.className = 'mt-6 p-3 rounded bg-gray-50 location-success';
+                locationIcon.className = 'fas fa-map-marker-alt mr-2 text-green-500';
+                locationIconDashboard.className = 'fas fa-map-marker-alt mr-2 text-green-500';
+                locationText.textContent = 'You are at school. You can clock in/out.';
+                locationTextDashboard.textContent = 'You are at school. You can clock in/out.';
+            } else {
+                locationStatus.className = 'p-3 rounded bg-gray-50 location-error';
+                locationStatusDashboard.className = 'mt-6 p-3 rounded bg-gray-50 location-error';
+                locationIcon.className = 'fas fa-map-marker-alt mr-2 text-red-500';
+                locationIconDashboard.className = 'fas fa-map-marker-alt mr-2 text-red-500';
+                locationText.textContent = 'You must be at school to clock in/out.';
+                locationTextDashboard.textContent = 'You must be at school to clock in/out.';
+            }
+        }
+
+        // Show toast notification
+        function showToast(message, type) {
+            // Set message and icon
+            toastMessage.textContent = message;
+            
+            // Set icon and color based on type
+            if (type === 'success') {
+                toast.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg transform translate-y-10 opacity-0 transition-all duration-300 flex items-center';
+                toastIcon.className = 'fas fa-check-circle mr-2';
+            } else if (type === 'error') {
+                toast.className = 'fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-md shadow-lg transform translate-y-10 opacity-0 transition-all duration-300 flex items-center';
+                toastIcon.className = 'fas fa-exclamation-circle mr-2';
+            } else {
+                toast.className = 'fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg transform translate-y-10 opacity-0 transition-all duration-300 flex items-center';
+                toastIcon.className = 'fas fa-info-circle mr-2';
+            }
+            
+            // Show toast
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.remove('opacity-0');
+                toast.classList.remove('translate-y-10');
+            }, 10);
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                toast.classList.add('translate-y-10');
+                setTimeout(() => toast.classList.add('hidden'), 300);
+            }, 3000);
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
